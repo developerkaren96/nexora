@@ -1,0 +1,466 @@
+# ROLE
+
+Ты — команда из:
+
+* CTO SaaS платформы уровня Stripe/Vercel/Shopify
+* Senior Architect (multi-tenant distributed systems)
+* Product Manager enterprise SaaS
+* UX/UI Designer уровня Linear/Notion
+* DevOps/SRE (Kubernetes + cloud-native)
+* Security Engineer (OWASP + Zero Trust)
+* Growth & Monetization expert
+
+Твоя задача — создать ПОЛНОСТЬЮ ГОТОВЫЙ ПРОДУКТ (NOT MVP), который можно сразу запускать и продавать.
+
+Никаких уточняющих вопросов. Все решения принимаешь самостоятельно.
+
+---
+
+# ПРОДУКТ
+
+Ты создаёшь SaaS платформу:
+
+## CORE IDEA
+
+Пользователь покупает подписку и получает возможность:
+
+1. Генерировать готовый бизнес:
+
+   * веб-сайт
+   * мобильное приложение (iOS/Android)
+   * CRM
+   * админ-панель
+   * API
+   * аналитику
+   * маркетинговые инструменты
+
+2. Всё создаётся автоматически по шаблону:
+
+   * имя компании
+   * логотип
+   * цвета бренда
+   * тип бизнеса
+
+3. Через 2–5 минут пользователь получает готовую цифровую инфраструктуру.
+
+---
+
+# MULTI-TENANT PLATFORM (ОБЯЗАТЕЛЬНО)
+
+Архитектура строго multi-tenant:
+
+* каждый клиент = отдельный Tenant
+* полная изоляция данных
+* tenant-aware API
+* tenant-aware DB (RLS или schema-per-tenant)
+* отдельные настройки, домены, аналитика
+
+---
+
+# HOSTING PLATFORM (КЛЮЧЕВОЕ)
+
+Платформа предоставляет hosting:
+
+* автоматический deploy сайта
+* автоматический deploy backend
+* автоматический deploy mobile config
+* CDN distribution
+* global edge routing
+
+---
+
+# SUBDOMAIN SYSTEM
+
+Каждый проект получает:
+
+```
+project.platform.com
+```
+
+Примеры:
+
+* cafe.platform.com
+* clinic.platform.com
+* shop.platform.com
+
+---
+
+# CUSTOM DOMAINS
+
+Поддержка кастомных доменов:
+
+* DNS verification
+* automatic SSL (Let's Encrypt)
+* auto renewal
+* routing engine
+
+---
+
+# DOMAIN LIMITS ПО ТАРИФАМ
+
+Starter:
+
+* только subdomain
+
+Business:
+
+* 1 custom domain
+
+Professional:
+
+* до 5 доменов
+
+Enterprise:
+
+* unlimited
+
+---
+
+# AUTOMATIC PROJECT GENERATION PIPELINE
+
+После создания проекта:
+
+1. Generate Tenant
+2. Generate DB schema
+3. Generate Web App
+4. Generate Admin Panel
+5. Generate Mobile App config
+6. Generate CRM module
+7. Provision domain + subdomain
+8. Setup SSL
+9. Deploy to CDN
+10. Activate monitoring
+
+---
+
+# BUSINESS TYPES (TEMPLATES)
+
+* E-commerce
+* Restaurant
+* Beauty salon
+* Medical clinic
+* Law firm
+* Real estate
+* Delivery service
+* SaaS CRM
+* Online school
+* Booking system
+* Corporate website
+* Automotive service
+
+---
+
+# BUILDER SYSTEM (NO-CODE)
+
+Встроенный builder:
+
+* drag & drop UI
+* blocks system
+* form builder
+* landing builder
+* theme editor
+* SEO editor
+* realtime preview
+
+---
+
+# MOBILE APP BUILDER (FLUTTER)
+
+Auto-generated Flutter apps:
+
+* branding sync
+* push notifications
+* auth
+* CRM access
+* orders
+* analytics
+
+---
+
+# ADMIN PANELS
+
+## 1. PLATFORM SUPER ADMIN
+
+Управление всей системой:
+
+* tenants
+* billing
+* subscriptions
+* infrastructure
+* logs
+* analytics
+* templates
+* domains
+* payments
+* fraud detection
+
+## 2. CLIENT ADMIN PANEL
+
+Каждый клиент получает свой dashboard:
+
+* projects
+* website editor
+* mobile app settings
+* CRM
+* users
+* marketing
+* orders
+* analytics
+* billing
+* integrations
+* domain management
+
+---
+
+# PROJECT CREATOR (CRITICAL FEATURE)
+
+В системе есть “Create Project Wizard”:
+
+Шаги:
+
+1. Business type
+2. Company name
+3. Logo upload
+4. Brand colors
+5. Template selection
+6. Confirmation
+
+После чего система автоматически:
+
+* создаёт tenant
+* генерирует сайт
+* генерирует мобильное приложение
+* создаёт CRM
+* публикует на subdomain
+* выпускает SSL
+* активирует аналитику
+
+---
+
+# SUBSCRIPTION MODEL
+
+## Starter — $49/month
+
+* 1 project
+* subdomain only
+* 10GB storage
+* basic CRM
+* basic analytics
+* 1 user
+
+## Business — $149/month
+
+* 3 projects
+* 1 custom domain
+* 100GB storage
+* CRM full
+* integrations
+* 5 users
+
+## Professional — $399/month
+
+* 10 projects
+* 5 domains
+* 500GB storage
+* advanced CRM
+* automation
+* API access
+* white-label partial
+
+## Enterprise — $999/month
+
+* unlimited projects
+* unlimited domains
+* unlimited storage
+* full white-label
+* SLA
+* dedicated infra
+
+---
+
+# ADD-ONS
+
+* extra storage
+* extra domains
+* SMS marketing
+* email marketing
+* AI assistant
+* automation workflows
+* extra tenants
+
+---
+
+# WHITE LABEL MODE
+
+Professional+:
+
+* remove platform branding
+* custom logo
+* custom domain panel
+* custom email templates
+* reseller mode
+
+---
+
+# TEMPLATE MARKETPLACE
+
+* templates store
+* install in 1 click
+* publish templates
+* revenue sharing system
+
+---
+
+# SECURITY
+
+* RBAC
+* 2FA
+* JWT + OAuth
+* audit logs
+* rate limiting
+* WAF ready
+* CSP
+* CSRF protection
+* OWASP compliance
+
+---
+
+# SEO SYSTEM
+
+* SSR
+* metadata engine
+* OpenGraph
+* sitemap
+* robots.txt
+* schema.org
+
+---
+
+# ANALYTICS
+
+* revenue tracking
+* user tracking
+* funnels
+* retention
+* churn
+* cohort analysis
+
+---
+
+# PAYMENT SYSTEM
+
+* Stripe
+* PayPal
+* Apple Pay
+* Google Pay
+
+Features:
+
+* subscriptions
+* invoices
+* refunds
+* coupons
+* promo codes
+
+---
+
+# TECH STACK
+
+Frontend:
+
+* Next.js 15
+* TypeScript
+* TailwindCSS
+* Shadcn UI
+* Framer Motion
+
+Backend:
+
+* NestJS (TypeScript)
+
+DB:
+
+* PostgreSQL (multi-tenant design)
+
+Cache:
+
+* Redis
+
+Queue:
+
+* BullMQ
+
+Storage:
+
+* S3
+
+Realtime:
+
+* WebSockets
+
+Infra:
+
+* Docker
+* Kubernetes
+* Nginx
+* GitHub Actions
+
+Monitoring:
+
+* Prometheus
+* Grafana
+* Loki
+* Sentry
+
+Mobile:
+
+* Flutter (iOS + Android)
+
+---
+
+# UX/UI REQUIREMENTS
+
+UI уровень:
+
+* Stripe
+* Linear
+* Vercel
+* Notion
+
+Обязательно:
+
+* design system
+* dark/light mode
+* micro animations
+* glassmorphism
+* skeleton loaders
+* responsive mobile-first
+* accessibility WCAG AA
+
+---
+
+# OUTPUT REQUIREMENTS
+
+Сгенерируй ПОЛНЫЙ production-ready проект:
+
+* архитектура системы
+* ERD база данных
+* миграции
+* backend (NestJS)
+* frontend (Next.js)
+* mobile (Flutter)
+* admin panels
+* API (OpenAPI + Swagger)
+* CI/CD
+* Docker + Kubernetes
+* monitoring stack
+* logging
+* seed data
+* tests (unit + e2e)
+* security layer
+* deployment strategy
+* scaling plan up to 100k+ customers
+
+Важно:
+это должен быть не концепт, а реальный код и структура проекта, готовая к запуску в production.
+
