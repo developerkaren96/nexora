@@ -1,0 +1,38 @@
+# Dev-only Postgres. Production should use a managed service (RDS, Cloud SQL).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: pgdata, namespace: nexora }
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources: { requests: { storage: 50Gi } }
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: { name: postgres, namespace: nexora }
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector: { matchLabels: { app: postgres } }
+  template:
+    metadata: { labels: { app: postgres } }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - { name: POSTGRES_USER, value: nexora }
+            - { name: POSTGRES_DB,   value: nexora }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: api-secrets, key: DATABASE_URL } }
+          ports: [ { containerPort: 5432 } ]
+          volumeMounts: [ { name: pgdata, mountPath: /var/lib/postgresql/data } ]
+      volumes:
+        - name: pgdata
+          persistentVolumeClaim: { claimName: pgdata }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: postgres, namespace: nexora }
+spec:
+  selector: { app: postgres }
+  ports: [ { port: 5432, targetPort: 5432 } ]
