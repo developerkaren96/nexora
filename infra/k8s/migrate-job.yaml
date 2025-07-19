@@ -1,0 +1,15 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migrate
+  namespace: nexora
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: ghcr.io/nexora/api:latest
+          command: ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy && node packages/database/dist/rls.js"]
+          envFrom: [ { secretRef: { name: api-secrets } } ]
