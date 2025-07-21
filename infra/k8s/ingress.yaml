@@ -1,0 +1,45 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nexora-edge
+  namespace: nexora
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: DENY";
+      more_set_headers "Referrer-Policy: strict-origin-when-cross-origin";
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: ["nexora.app", "www.nexora.app", "app.nexora.app", "admin.nexora.app", "api.nexora.app", "*.nexora.app"]
+      secretName: nexora-tls
+  rules:
+    - host: api.nexora.app
+      http: { paths: [ { path: /, pathType: Prefix, backend: { service: { name: api, port: { number: 4000 } } } } ] }
+    - host: nexora.app
+      http: { paths: [ { path: /, pathType: Prefix, backend: { service: { name: web, port: { number: 3000 } } } } ] }
+    - host: www.nexora.app
+      http: { paths: [ { path: /, pathType: Prefix, backend: { service: { name: web, port: { number: 3000 } } } } ] }
+    - host: app.nexora.app
+      http: { paths: [ { path: /, pathType: Prefix, backend: { service: { name: web, port: { number: 3000 } } } } ] }
+    - host: admin.nexora.app
+      http: { paths: [ { path: /, pathType: Prefix, backend: { service: { name: web, port: { number: 3000 } } } } ] }
+    - host: "*.nexora.app"
+      http: { paths: [ { path: /, pathType: Prefix, backend: { service: { name: web, port: { number: 3000 } } } } ] }
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata: { name: letsencrypt-prod }
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: ops@nexora.app
+    privateKeySecretRef: { name: letsencrypt-prod }
+    solvers:
+      - http01: { ingress: { class: nginx } }
+      - dns01:
+          # NEXORA: enable DNS-01 to issue wildcard *.nexora.app
+          cloudflare:
+            apiTokenSecretRef: { name: cloudflare-api-token, key: token }
+        selector: { dnsNames: ["*.nexora.app"] }
