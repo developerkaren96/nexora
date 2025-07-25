@@ -1,0 +1,28 @@
+groups:
+  - name: nexora.rules
+    rules:
+      - alert: APIHighErrorRate
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) > 0.02
+        for: 10m
+        labels: { severity: critical }
+        annotations:
+          summary: "API 5xx rate > 2%"
+          runbook: "See DEPLOYMENT.md → Runbook"
+
+      - alert: APILatencyP95
+        expr: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m]))) > 1.0
+        for: 15m
+        labels: { severity: warning }
+        annotations: { summary: "API p95 latency > 1s" }
+
+      - alert: ProvisionQueueBacklog
+        expr: bullmq_queue_waiting{queue="project-provision"} > 100
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "Project provisioning backlog growing" }
+
+      - alert: TenantCertExpiringSoon
+        expr: (nexora_domain_cert_expires_seconds < 7*24*3600) and (nexora_domain_cert_expires_seconds > 0)
+        for: 1h
+        labels: { severity: warning }
+        annotations: { summary: "A custom-domain cert expires in < 7 days" }
