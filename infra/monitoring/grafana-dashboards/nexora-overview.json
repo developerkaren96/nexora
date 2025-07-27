@@ -1,0 +1,19 @@
+{
+  "title": "Nexora — Overview",
+  "schemaVersion": 39,
+  "tags": ["nexora"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "panels": [
+    { "type": "stat", "title": "Active tenants",
+      "targets": [ { "expr": "nexora_tenants_active" } ] },
+    { "type": "stat", "title": "MRR (USD)",
+      "targets": [ { "expr": "nexora_mrr_cents / 100" } ] },
+    { "type": "graph", "title": "API requests / sec",
+      "targets": [ { "expr": "sum(rate(http_requests_total[1m]))" } ] },
+    { "type": "graph", "title": "API p95 latency",
+      "targets": [ { "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))" } ] },
+    { "type": "graph", "title": "Provisioning queue depth",
+      "targets": [ { "expr": "bullmq_queue_waiting{queue=\"project-provision\"}" } ] }
+  ]
+}
