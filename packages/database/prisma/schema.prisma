@@ -1,0 +1,613 @@
+// Nexora — Multi-tenant SaaS schema
+// Tenancy: shared schema + tenant_id + Postgres RLS (see ../src/rls.ts).
+// Every business table carries tenant_id and is RLS-protected.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+  extensions        = [pgcrypto, citext]
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+enum SystemRole {
+  PLATFORM_ADMIN
+  PLATFORM_SUPPORT
+  USER
+}
+
+enum MembershipRole {
+  TENANT_OWNER
+  TENANT_ADMIN
+  TENANT_MEMBER
+  TENANT_BILLING
+  TENANT_READONLY
+}
+
+enum TenantStatus {
+  ACTIVE
+  TRIAL
+  PAST_DUE
+  SUSPENDED
+  CANCELED
+}
+
+enum PlanCode {
+  STARTER
+  BUSINESS
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+  UNPAID
+}
+
+enum ProjectStatus {
+  PENDING
+  PROVISIONING
+  ACTIVE
+  SUSPENDED
+  FAILED
+  DELETING
+}
+
+enum BusinessType {
+  ECOMMERCE
+  RESTAURANT
+  BEAUTY_SALON
+  MEDICAL_CLINIC
+  LAW_FIRM
+  REAL_ESTATE
+  DELIVERY
+  SAAS_CRM
+  ONLINE_SCHOOL
+  BOOKING
+  CORPORATE
+  AUTOMOTIVE
+}
+
+enum DomainStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  ACTIVE
+  FAILED
+  REMOVED
+}
+
+enum DomainKind {
+  SUBDOMAIN
+  CUSTOM
+}
+
+enum ProvisionStepName {
+  TENANT_ENSURE
+  SCHEMA_SEED
+  SITE_GENERATE
+  ADMIN_GENERATE
+  MOBILE_CONFIG
+  CRM_BOOTSTRAP
+  DOMAIN_PROVISION
+  TLS_ISSUE
+  CDN_PUBLISH
+  MONITORING_ACTIVATE
+}
+
+enum ProvisionStepStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  SKIPPED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  PERMISSION_CHANGE
+  EXPORT
+  IMPERSONATE
+}
+
+// ─── Platform / Identity ─────────────────────────────────────────────────────
+
+model User {
+  id              String       @id @default(uuid()) @db.Uuid
+  email           String       @unique @db.Citext
+  emailVerifiedAt DateTime?
+  passwordHash    String?
+  name            String?
+  avatarUrl       String?
+  systemRole      SystemRole   @default(USER)
+  locale          String       @default("en")
+  timezone        String       @default("UTC")
+  twoFactorSecret String?
+  twoFactorEnabled Boolean     @default(false)
+  recoveryCodes   String[]     @default([])
+  lastLoginAt     DateTime?
+  lastLoginIp     String?
+  status          String       @default("active") // active | locked | deleted
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  deletedAt       DateTime?
+
+  memberships     Membership[]
+  oauthIdentities OAuthIdentity[]
+  refreshTokens   RefreshToken[]
+  auditEvents     AuditEvent[]   @relation("AuditActor")
+
+  @@index([status])
+  @@map("users")
+}
+
+model OAuthIdentity {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  provider    String   // google | github
+  providerId  String
+  email       String?
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerId])
+  @@index([userId])
+  @@map("oauth_identities")
+}
+
+model RefreshToken {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  familyId    String   @db.Uuid                 // rotates same family
+  tokenHash   String   @unique
+  userAgent   String?
+  ip          String?
+  revokedAt   DateTime?
+  replacedBy  String?
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+// ─── Tenancy ─────────────────────────────────────────────────────────────────
+
+model Tenant {
+  id              String        @id @default(uuid()) @db.Uuid
+  slug            String        @unique             // becomes <slug>.nexora.app
+  name            String
+  status          TenantStatus  @default(TRIAL)
+  ownerId         String        @db.Uuid
+  brandColor      String        @default("#6366F1")
+  logoUrl         String?
+  metadata        Json          @default("{}")
+  storageUsedMb   Int           @default(0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?
+
+  memberships     Membership[]
+  projects        Project[]
+  domains         Domain[]
+  subscription    Subscription?
+  invoices        Invoice[]
+  apiKeys         ApiKey[]
+  auditEvents     AuditEvent[]
+  customers       Customer[]
+  crmPipelines    CrmPipeline[]
+  notifications   Notification[]
+
+  @@index([status])
+  @@map("tenants")
+}
+
+model Membership {
+  id          String         @id @default(uuid()) @db.Uuid
+  tenantId    String         @db.Uuid
+  userId      String         @db.Uuid
+  role        MembershipRole @default(TENANT_MEMBER)
+  invitedAt   DateTime?
+  acceptedAt  DateTime?
+  createdAt   DateTime       @default(now())
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([userId])
+  @@map("memberships")
+}
+
+// ─── Billing ─────────────────────────────────────────────────────────────────
+
+model Plan {
+  code              PlanCode  @id
+  name              String
+  monthlyPriceUsd   Int                              // cents
+  yearlyPriceUsd    Int                              // cents
+  stripePriceMonth  String?
+  stripePriceYear   String?
+  maxProjects       Int                              // -1 = unlimited
+  maxDomains        Int
+  maxStorageGb      Int
+  maxSeats          Int
+  features          Json     @default("{}")
+  isPublic          Boolean  @default(true)
+  sortOrder         Int      @default(0)
+
+  subscriptions     Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id                   String              @id @default(uuid()) @db.Uuid
+  tenantId             String              @unique @db.Uuid
+  planCode             PlanCode
+  status               SubscriptionStatus  @default(TRIALING)
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  trialEndsAt          DateTime?
+  cancelAt             DateTime?
+  canceledAt           DateTime?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  tenant               Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan                 Plan                @relation(fields: [planCode], references: [code])
+
+  @@index([status])
+  @@map("subscriptions")
+}
+
+model Invoice {
+  id                String   @id @default(uuid()) @db.Uuid
+  tenantId          String   @db.Uuid
+  stripeInvoiceId   String?  @unique
+  number            String?
+  amountDueCents    Int
+  amountPaidCents   Int      @default(0)
+  currency          String   @default("usd")
+  status            String                                 // draft | open | paid | void | uncollectible
+  hostedUrl         String?
+  pdfUrl            String?
+  periodStart       DateTime?
+  periodEnd         DateTime?
+  createdAt         DateTime @default(now())
+
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@map("invoices")
+}
+
+// ─── Projects (the generated businesses) ─────────────────────────────────────
+
+model Project {
+  id            String        @id @default(uuid()) @db.Uuid
+  tenantId      String        @db.Uuid
+  slug          String                                    // unique per tenant; subdomain segment
+  name          String
+  businessType  BusinessType
+  status        ProjectStatus @default(PENDING)
+  brandColor    String        @default("#6366F1")
+  logoUrl       String?
+  templateId    String?       @db.Uuid
+  failureReason String?
+  config        Json          @default("{}")             // brand, contact info, hours, etc.
+  publishedAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  deletedAt     DateTime?
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  template      Template?     @relation(fields: [templateId], references: [id])
+  pages         Page[]
+  domains       Domain[]
+  mobileConfig  MobileConfig?
+  steps         ProvisionStep[]
+  customers     Customer[]
+  orders        Order[]
+  analyticsEvents AnalyticsEvent[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, status])
+  @@map("projects")
+}
+
+model ProvisionStep {
+  id          String              @id @default(uuid()) @db.Uuid
+  tenantId    String              @db.Uuid
+  projectId   String              @db.Uuid
+  name        ProvisionStepName
+  status      ProvisionStepStatus @default(PENDING)
+  attempts    Int                 @default(0)
+  error       String?
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime            @default(now())
+
+  project     Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, name])
+  @@index([tenantId, status])
+  @@map("provision_steps")
+}
+
+// ─── Builder / Pages / Blocks ────────────────────────────────────────────────
+
+model Page {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @db.Uuid
+  projectId   String   @db.Uuid
+  slug        String                                   // e.g. "/", "/about"
+  title       String
+  description String?
+  metaJson    Json     @default("{}")                  // SEO + OG + JSON-LD
+  blocks      Json     @default("[]")                  // ordered block tree
+  isPublished Boolean  @default(true)
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, slug])
+  @@index([tenantId])
+  @@map("pages")
+}
+
+model MobileConfig {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @db.Uuid
+  projectId   String   @unique @db.Uuid
+  bundleId    String?
+  appName     String
+  themeJson   Json     @default("{}")
+  iconUrl     String?
+  splashUrl   String?
+  features    Json     @default("{}")                  // {push:true, orders:true, ...}
+  updatedAt   DateTime @updatedAt
+
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("mobile_configs")
+}
+
+// ─── Domains ─────────────────────────────────────────────────────────────────
+
+model Domain {
+  id              String       @id @default(uuid()) @db.Uuid
+  tenantId        String       @db.Uuid
+  projectId       String?      @db.Uuid
+  hostname        String       @unique
+  kind            DomainKind
+  status          DomainStatus @default(PENDING_VERIFICATION)
+  verifyToken     String?
+  verifiedAt      DateTime?
+  tlsIssuedAt     DateTime?
+  tlsExpiresAt    DateTime?
+  isPrimary       Boolean      @default(false)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  project         Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("domains")
+}
+
+// ─── CRM ─────────────────────────────────────────────────────────────────────
+
+model Customer {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @db.Uuid
+  projectId   String?  @db.Uuid
+  email       String?  @db.Citext
+  phone       String?
+  name        String?
+  tags        String[] @default([])
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  orders      Order[]
+  deals       CrmDeal[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId, projectId])
+  @@map("customers")
+}
+
+model CrmPipeline {
+  id          String     @id @default(uuid()) @db.Uuid
+  tenantId    String     @db.Uuid
+  name        String
+  stages      Json       @default("[]")
+  createdAt   DateTime   @default(now())
+
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deals       CrmDeal[]
+
+  @@map("crm_pipelines")
+}
+
+model CrmDeal {
+  id           String      @id @default(uuid()) @db.Uuid
+  tenantId     String      @db.Uuid
+  pipelineId   String      @db.Uuid
+  customerId   String?     @db.Uuid
+  title        String
+  amountCents  Int         @default(0)
+  currency     String      @default("usd")
+  stage        String
+  closedAt     DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  pipeline     CrmPipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  customer     Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, stage])
+  @@map("crm_deals")
+}
+
+model Order {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @db.Uuid
+  projectId    String   @db.Uuid
+  customerId   String?  @db.Uuid
+  number       String
+  totalCents   Int
+  currency     String   @default("usd")
+  status       String   @default("pending")
+  itemsJson    Json     @default("[]")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  customer     Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, number])
+  @@index([tenantId, status])
+  @@map("orders")
+}
+
+// ─── Templates / Marketplace ────────────────────────────────────────────────
+
+model Template {
+  id            String   @id @default(uuid()) @db.Uuid
+  authorTenantId String? @db.Uuid                       // null = first-party
+  slug          String   @unique
+  name          String
+  businessType  BusinessType
+  description   String?
+  previewUrl    String?
+  thumbnailUrl  String?
+  priceCents    Int      @default(0)
+  isPublished   Boolean  @default(true)
+  installCount  Int      @default(0)
+  ratingAvg     Float    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  versions      TemplateVersion[]
+  projects      Project[]
+
+  @@index([businessType])
+  @@map("templates")
+}
+
+model TemplateVersion {
+  id         String   @id @default(uuid()) @db.Uuid
+  templateId String   @db.Uuid
+  version    String
+  payload    Json                                       // page tree, mobile cfg, seed
+  createdAt  DateTime @default(now())
+
+  template   Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, version])
+  @@map("template_versions")
+}
+
+// ─── API keys / Webhooks ────────────────────────────────────────────────────
+
+model ApiKey {
+  id          String    @id @default(uuid()) @db.Uuid
+  tenantId    String    @db.Uuid
+  name        String
+  prefix      String                                  // first 8 chars (shown)
+  hash        String    @unique                       // sha256 of secret
+  scopes      String[]  @default([])
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("api_keys")
+}
+
+// ─── Analytics (event store + rollups) ──────────────────────────────────────
+
+model AnalyticsEvent {
+  id         BigInt   @id @default(autoincrement())
+  tenantId   String   @db.Uuid
+  projectId  String?  @db.Uuid
+  name       String                                   // pageview | order_placed | signup | ...
+  userId     String?  @db.Uuid
+  anonymousId String?
+  properties Json     @default("{}")
+  occurredAt DateTime @default(now())
+
+  project    Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, occurredAt])
+  @@index([tenantId, name, occurredAt])
+  @@map("analytics_events")
+}
+
+// ─── Audit + Notifications ──────────────────────────────────────────────────
+
+model AuditEvent {
+  id          String      @id @default(uuid()) @db.Uuid
+  tenantId    String?     @db.Uuid
+  actorUserId String?     @db.Uuid
+  action      AuditAction
+  resource    String                                  // e.g. "project"
+  resourceId  String?
+  before      Json?
+  after       Json?
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime    @default(now())
+
+  tenant      Tenant?     @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  actor       User?       @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([resource, resourceId])
+  @@map("audit_events")
+}
+
+model Notification {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @db.Uuid
+  userId     String?  @db.Uuid
+  title      String
+  body       String
+  level      String   @default("info")                // info | success | warn | error
+  url        String?
+  readAt     DateTime?
+  createdAt  DateTime @default(now())
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
+  @@map("notifications")
+}
