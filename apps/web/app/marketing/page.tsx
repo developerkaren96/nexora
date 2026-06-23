@@ -273,7 +273,7 @@ function Hero({ t }: { t: any }) {
                     lineHeight: 1.04,
                   }}
                 >
-                  {/* Ghost reference layer: invisible words reserve max width AND donate baseline */}
+                  {/* Ghost layer (in grid flow): invisible words reserve max width + donate baseline */}
                   {rotating.map((w, i) => (
                     <span
                       key={`g${i}`}
@@ -288,10 +288,11 @@ function Hero({ t }: { t: any }) {
                       {w}
                     </span>
                   ))}
-                  {/* Visible animated stack overlaid in the same grid cell */}
+                  {/* Animated stack: absolute, NOT a grid item — won't inflate row height */}
                   <span
-                    className="overflow-hidden"
-                    style={{ gridArea: "1 / 1", lineHeight: 1.04, alignSelf: "stretch" }}
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 overflow-hidden"
+                    style={{ lineHeight: 1.04 }}
                   >
                     <span className="nx-rotate" style={{ lineHeight: 1.04 }}>
                       {[...rotating, rotating[0]].map((w, i) => (
