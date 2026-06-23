@@ -5,6 +5,7 @@ import {
   ShoppingBag, UtensilsCrossed, Scissors, Stethoscope, Scale, Home as HomeIcon,
   Truck, Database, GraduationCap, CalendarCheck2, Building2, Car,
   Star, Quote, Flame, Timer, TrendingUp, Users,
+  CreditCard, Receipt, Link2, Languages, UserCog, Plug,
 } from "lucide-react";
 import { ssrApi } from "@/lib/api";
 import { getLocale } from "@/lib/i18n/get-locale";
@@ -25,7 +26,11 @@ const BIZ_ICONS = [
   Truck, Database, GraduationCap, CalendarCheck2, Building2, Car,
 ];
 
-const FEATURE_ICONS = [Globe, Smartphone, BarChart3, Shield, Zap, Layers];
+const FEATURE_ICONS = [
+  Globe, Smartphone, Users, BarChart3,
+  CreditCard, Receipt, Link2, Languages,
+  Shield, Layers, UserCog, Plug,
+];
 
 /* Rotating business types in the hero — same Russian list everywhere. */
 /* Fallback rotating list — used only if the locale dictionary doesn't provide one. */
@@ -112,6 +117,8 @@ function Keyframes() {
 .nx-rotate          { display: inline-flex; flex-direction: column; line-height: 1; animation: nx-rotate-words 12s cubic-bezier(0.65,0,0.35,1) infinite; }
 .nx-tilt            { transition: transform 400ms cubic-bezier(0.2,0.8,0.2,1), box-shadow 400ms ease; }
 .nx-tilt:hover      { transform: translateY(-4px) rotate(-0.3deg); box-shadow: 0 28px 60px -30px rgba(24,24,27,0.30); }
+.nx-btn-shine       { transform: translateX(-120%); will-change: transform; backface-visibility: hidden; }
+.group:hover > .nx-btn-shine { animation: nx-shine 1.1s cubic-bezier(0.2,0.8,0.2,1); }
 .nx-typed           { display: inline-block; overflow: hidden; white-space: nowrap; width: 0; animation: nx-type 3.5s steps(22) 0.3s forwards; }
 .nx-underline::after{ content:""; position:absolute; left:0; right:0; bottom:-2px; height:3px; border-radius:9999px; background: linear-gradient(90deg, #6366f1, #a855f7, #6366f1); transform: scaleX(0); transform-origin: left; animation: nx-underline 1.2s cubic-bezier(0.2,0.8,0.2,1) 0.4s forwards; }
 
@@ -192,8 +199,7 @@ function Nav({ locale, t }: { locale: Locale; t: any }) {
             <ArrowRight className="relative size-3.5 transition group-hover:translate-x-0.5" />
             <span
               aria-hidden
-              className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/30 to-transparent"
-              style={{ animation: "nx-shine 4s ease-in-out 1s infinite" }}
+              className="nx-btn-shine pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/30 to-transparent"
             />
           </Link>
         </div>
@@ -253,25 +259,51 @@ function Hero({ t }: { t: any }) {
         <div className="mx-auto max-w-3xl text-center">
           <LiveBadge text={t.hero.badge} />
           {(() => {
-            const rotating = (t.hero.rotating?.length ? t.hero.rotating : ROTATING_FALLBACK);
+            const rotating: string[] = (t.hero.rotating?.length ? t.hero.rotating : ROTATING_FALLBACK);
             return (
               <h1 className="mt-6 text-balance text-[40px] font-semibold leading-[1.04] tracking-tight text-zinc-900 md:text-[68px] dark:text-zinc-100">
                 {t.hero.launch_verb}{" "}
                 <span
-                  className="relative inline-block overflow-hidden align-baseline"
+                  className="relative"
                   aria-label={rotating.join(", ")}
-                  style={{ height: "1.04em", lineHeight: 1.04, verticalAlign: "baseline" }}
+                  style={{
+                    display: "inline-grid",
+                    alignItems: "baseline",
+                    verticalAlign: "baseline",
+                    lineHeight: 1.04,
+                  }}
                 >
-                  <span className="nx-rotate" style={{ lineHeight: 1.04 }}>
-                    {[...rotating, rotating[0]].map((w, i) => (
-                      <span
-                        key={i}
-                        className="block bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-600 bg-clip-text pr-1 text-transparent"
-                        style={{ height: "1.04em", lineHeight: 1.04 }}
-                      >
-                        {w}
-                      </span>
-                    ))}
+                  {/* Ghost reference layer: invisible words reserve max width AND donate baseline */}
+                  {rotating.map((w, i) => (
+                    <span
+                      key={`g${i}`}
+                      aria-hidden
+                      className="invisible whitespace-nowrap pr-1"
+                      style={{
+                        gridArea: "1 / 1",
+                        lineHeight: 1.04,
+                        alignSelf: "baseline",
+                      }}
+                    >
+                      {w}
+                    </span>
+                  ))}
+                  {/* Visible animated stack overlaid in the same grid cell */}
+                  <span
+                    className="overflow-hidden"
+                    style={{ gridArea: "1 / 1", lineHeight: 1.04, alignSelf: "stretch" }}
+                  >
+                    <span className="nx-rotate" style={{ lineHeight: 1.04 }}>
+                      {[...rotating, rotating[0]].map((w, i) => (
+                        <span
+                          key={i}
+                          className="block whitespace-nowrap bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-600 bg-clip-text pr-1 text-transparent"
+                          style={{ lineHeight: 1.04 }}
+                        >
+                          {w}
+                        </span>
+                      ))}
+                    </span>
                   </span>
                 </span>
                 <br className="hidden md:block" />
@@ -298,8 +330,7 @@ function Hero({ t }: { t: any }) {
               <ArrowRight className="relative size-4 transition group-hover:translate-x-0.5" />
               <span
                 aria-hidden
-                className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/25 to-transparent"
-                style={{ animation: "nx-shine 3.4s ease-in-out 0.8s infinite" }}
+                className="nx-btn-shine pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/25 to-transparent"
               />
             </Link>
             <Link
@@ -1321,8 +1352,7 @@ function CtaBand({ t }: { t: any }) {
               <ArrowUpRight className="relative size-4 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               <span
                 aria-hidden
-                className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-indigo-400/40 to-transparent"
-                style={{ animation: "nx-shine 3.4s ease-in-out 0.6s infinite" }}
+                className="nx-btn-shine pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-indigo-400/40 to-transparent"
               />
             </Link>
             <Link
